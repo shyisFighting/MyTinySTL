@@ -178,8 +178,32 @@ namespace mystl
 	// 重新填充freelist
 	void* alloc::M_refill(size_t n)
 	{
-             			
+        size_t nblock = 10;
+        char* c = M_chunk_alloc(n,nblock);
+        FreeList** my_free_list;
+        FreeList* result,*cur,*next;
+        if(nblock==1)
+			return c;
+		my_free_list = free_list + M_freelist_index(n);
+		result = (FreeList*)c;
+		*my_free_list = next = (FreeList*)(c+n);
+		for (size_t i =1; ; ++i)
+		{
+			cur = next;
+			next = (FreeList*)((char*)next + n);
+			if (nblock-1 == i)
+			{
+				cur->next = nullptr;
+				break;
+			}
+			else
+			{
+				cur->next = next;
+			}
+		}
 	}
+		
+		
 	
 	char* alloc::M_chunk_alloc(size_t size,int& nblock)   
 	{
@@ -205,11 +229,55 @@ namespace mystl
 		{
 			if(pool_bytes>0)
 			{
+				// 因为取，求内存是8的倍数，所以通过剩余的内存去找可以放入的freelist，一定可以
+				// 刚好充满，而不会出现pool_bytes只有7，15这种尴尬的状况
 				FreeList** my_free_list = free_list + M_freelist_index(pool_bytes);
 				((FreeList*)start_free)->next = *my_free_list;
 				*my_free_list = (FreeList*)start_free;
 			}
-				
+			size_t bytes_to_get = (need_bytes<< 1)+ M_round_up(heap_size>>4);
+			start_free = (char*)std::malloc(bytes_to_get);
+			if(!start_free)
+			{
+				FreeList** my_free_list;
+				FreeList *p;
+				// 在比此大的自由链表中找可能用于分配的内存
+				for (size_t i = size;i<=ESmallobjectBytes;i+=M_align(i))
+				{
+					my_free_list = free_list+M_freelist_index(i);
+					p = *my_free_list;
+					// 如果为真，说明这里还有未分配的链表，在这里完成空间分配
+					// 可能会有剩余空间，但这里的浪费无法避免，将其视为一个完整的freelist
+					if(p)
+					{
+						*my_free_list = p->next;
+						start_free = (char*)p;
+						//这里是有多少空间，就拿走多少空间，全部用于分配
+						end_free = start_free + i;
+						return M_chunk_alloc(size,nblock);
+					}
+				// 如果还是没有满足的链表，那就直接抛出错误，这里没有使用一级
+				// 管理器的回调
+				}
+				std::printf("out of memory");
+				end_free = nullptr;
+				throw std::bad_alloc();
+			}
+			// 如果成功申请，更改初始，结尾
+			end_free = start_free+bytes_to_get;
+			heap_size += bytes_to_get;
+			return M_chunk_alloc(size,nblock);
+		}
+	}
+} //namespace mystl
+
+#endif
+	
+			
+			
+			
+			
+			
 	
 	
 	
