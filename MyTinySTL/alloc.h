@@ -124,14 +124,6 @@ namespace mystl
 		my_free_list = free_list + M_freelist_index(n);
 		q->next = *my_free_list;
 		*my_free_list = q; 
-		// FreeList* my_free_list;
-		// // 这里根据区块大小选择又是什么意思？q->next还比较好理解，
-		// // 选择的难道是空指针？？？？？？？？？？？？？？？
-		// my_free_list = free_list[M_freelist_index(n)];
-		// q->next = my_free_list;
-		// // 这个my_free_list有什么用啊？？？？？？？？？？
-		// // 不要忘了，deallocate是静态函数，可能是这里存在什么作用
-		// my_free_list = q;
 	}
 	
 	inline void* alloc::reallocate(void* p,size_t old_size,size_t new_size)
